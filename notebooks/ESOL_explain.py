@@ -147,51 +147,100 @@ if __name__ == "__main__":
     print("Original molecule")
     print('-' * 50)
 
+    # from graphlime import GraphLIME
+    #
+    # # rho controls the strength of the regularization.
+    # lime_explainer = GraphLIME(model, hop=2, rho=0.1)
+    #
+    # # node_idx, data.x, data.edge_index
+    # node_idx = 0
+    #
+    # # Pass in karg as well (batch_index)
+    # explanation = lime_explainer.explain_node(node_idx, data.x.float(), data.edge_index,
+    #                                           batch_index=torch.zeros(data.x.shape[0], dtype=int))
+    #
+    # print(explanation)
+
 
     def model_forward(edge_mask, data):
         batch = torch.zeros(data.x.shape[0], dtype=int).to(device)
         out = model(data.x.float(), data.edge_index, batch, edge_mask)
         return out
+    #
+    #
+    # def captum_explain(method, data, target=0):
+    #     input_mask = torch.ones(data.edge_index.shape[1]).requires_grad_(True).to(device)
+    #     if method == 'ig':
+    #         ig = IntegratedGradients(model_forward)
+    #         mask = ig.attribute(input_mask, target=target,
+    #                             additional_forward_args=(data,),
+    #                             internal_batch_size=data.edge_index.shape[1])
+    #     elif method == 'saliency':
+    #         saliency = Saliency(model_forward)
+    #         mask = saliency.attribute(input_mask, target=target,
+    #                                   additional_forward_args=(data,))
+    #     else:
+    #         raise Exception('Unknown explanation method')
+    #
+    #     edge_mask = np.abs(mask.cpu().detach().numpy())
+    #     if edge_mask.max() > 0:  # avoid division by zero
+    #         edge_mask = edge_mask / edge_mask.max()
+    #     return edge_mask
+    #
+    # for title, method in [('Integrated Gradients', 'ig'), ('Saliency', 'saliency')]:
+    #     edge_mask = captum_explain(method, data, target=0)
+    #     edge_mask_dict = aggregate_edge_directions(edge_mask, data)
+    #     print(f"Explanation for {title}")
+    #     img_save_path = f"{config['img_save_dir']}/{config['dataset']}/{visualize_index}/{title}.png"
+    #     os.makedirs(f"{config['img_save_dir']}/{config['dataset']}/{visualize_index}", exist_ok=True)
+    #     attribution_visualize_edge(data["smiles"], edge_mask_dict, img_save_path)
+    #     img = Image(filename=img_save_path)
+    #
+    #     print('-' * 50)
 
 
-    def captum_explain(method, data, target=0):
-        input_mask = torch.ones(data.edge_index.shape[1]).requires_grad_(True).to(device)
-        if method == 'ig':
-            ig = IntegratedGradients(model_forward)
-            mask = ig.attribute(input_mask, target=target,
-                                additional_forward_args=(data,),
-                                internal_batch_size=data.edge_index.shape[1])
-        elif method == 'saliency':
-            saliency = Saliency(model_forward)
-            mask = saliency.attribute(input_mask, target=target,
-                                      additional_forward_args=(data,))
-        else:
-            raise Exception('Unknown explanation method')
 
-        edge_mask = np.abs(mask.cpu().detach().numpy())
-        if edge_mask.max() > 0:  # avoid division by zero
-            edge_mask = edge_mask / edge_mask.max()
-        return edge_mask
-
-    for title, method in [('Integrated Gradients', 'ig'), ('Saliency', 'saliency')]:
-        edge_mask = captum_explain(method, data, target=0)
-        edge_mask_dict = aggregate_edge_directions(edge_mask, data)
-        print(f"Explanation for {title}")
-        img_save_path = f"{config['img_save_dir']}/{config['dataset']}/{visualize_index}/{title}.png"
-        os.makedirs(f"{config['img_save_dir']}/{config['dataset']}/{visualize_index}", exist_ok=True)
-        attribution_visualize_edge(data["smiles"], edge_mask_dict, img_save_path)
-        img = Image(filename=img_save_path)
-
-        print('-' * 50)
-
-
-
+#     gnnexplainer = Explainer(
+#         model=model,
+#         algorithm=GNNExplainer(epochs=100),
+#         explanation_type='phenomenon',
+#         edge_mask_type='object',
+#         node_mask_type='object',
+#         model_config=dict(
+#             mode='regression',
+#             task_level='graph',
+#             return_type='raw',
+#         ),
+#         # Include only the top 10 most important edges:
+#         threshold_config=dict(threshold_type='topk', value=config['explain_topk']),
+#     )
+#     batch_index = torch.zeros(data.x.shape[0], dtype=int).to(device)
+#     explanation = gnnexplainer(data.x.float(), data.edge_index, target=data.y, batch_index=batch_index)
+#     print(data)
+#     print(explanation)
+#     edge_mask_ = explanation.edge_mask
+#     edge_mask_ = edge_mask_.numpy()
+#     # edge_mask_ = (edge_mask_ - edge_mask_.min()) / (edge_mask_.max() - edge_mask_.min())
+#     edge_mask_ = edge_mask_.tolist()
+#     edge_mask_dict = aggregate_edge_directions(edge_mask_, data)
+#     node_mask = explanation.node_mask.numpy().tolist()
+#
+#
+#     img_save_path = f"{config['img_save_dir']}/{config['dataset']}/{visualize_index}/gnnexplainer.png"
+#     os.makedirs(f"{config['img_save_dir']}/{config['dataset']}/{visualize_index}", exist_ok=True)
+#
+#     attribution_visualize(data["smiles"], edge_mask_dict, node_mask, img_save_path)
+#     # attribution_visualize_edge(data["smiles"], edge_mask_dict, img_save_path)
+#     img = Image(filename=img_save_path)
+#     display(img)
+#
+# # node feature
+#
     gnnexplainer = Explainer(
         model=model,
         algorithm=GNNExplainer(epochs=100),
         explanation_type='phenomenon',
-        edge_mask_type='object',
-        node_mask_type='object',
+        node_mask_type='common_attributes',
         model_config=dict(
             mode='regression',
             task_level='graph',
@@ -201,23 +250,13 @@ if __name__ == "__main__":
         threshold_config=dict(threshold_type='topk', value=config['explain_topk']),
     )
 
-    explanation = gnnexplainer(data.x.float(), data.edge_index, batch_index=data.batch, target=data.y)
-    print(data)
+    explanation = gnnexplainer(data.x.float(), data.edge_index, target=data.y, batch_index=batch_index)
     print(explanation)
-    edge_mask_ = explanation.edge_mask
-    edge_mask_ = edge_mask_.numpy()
-    # edge_mask_ = (edge_mask_ - edge_mask_.min()) / (edge_mask_.max() - edge_mask_.min())
-    edge_mask_ = edge_mask_.tolist()
-    edge_mask_dict = aggregate_edge_directions(edge_mask_, data)
-    node_mask = explanation.node_mask.numpy().tolist()
 
-
-    img_save_path = f"{config['img_save_dir']}/{config['dataset']}/{visualize_index}/gnnexplainer.png"
-    os.makedirs(f"{config['img_save_dir']}/{config['dataset']}/{visualize_index}", exist_ok=True)
-
-    attribution_visualize(data["smiles"], edge_mask_dict, node_mask, img_save_path)
-    # attribution_visualize_edge(data["smiles"], edge_mask_dict, img_save_path)
-    img = Image(filename=img_save_path)
-    display(img)
-
+    # Use GNN explainer to get the node mask for all data: Get average
+    node_masks = []
+    for data in test_dataset:
+        batch_index = torch.zeros(data.x.shape[0], dtype=int).to(device)
+        explanation = gnnexplainer(data.x.float(), data.edge_index, target=data.y, batch_index=batch_index)
+        node_masks.append(explanation.node_mask.numpy())
 
